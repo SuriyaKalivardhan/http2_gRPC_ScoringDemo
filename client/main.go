@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -26,7 +28,7 @@ func main() {
 	}
 
 	client := pb.NewScorerClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 
 	switch testRPCtype {
 	case "Unary":
@@ -36,12 +38,12 @@ func main() {
 		}
 	case "cStream":
 		{
-			testUnary(client, ctx)
+			testClientStreaming(client, ctx)
 			break
 		}
 	case "sStream":
 		{
-			testUnary(client, ctx)
+			testServerStreaming(client, ctx)
 			break
 		}
 	case "BiDi":
@@ -63,4 +65,49 @@ func testUnary(client pb.ScorerClient, ctx context.Context) {
 		log.Fatalf("could not process: %v", err)
 	}
 	log.Printf("%s", r.GetResult())
+}
+
+func testClientStreaming(client pb.ScorerClient, ctx context.Context) {
+	stream, err := client.StreamingRequestScore(ctx)
+	if err != nil {
+		log.Fatalf("Could not process client stream request: %v", err)
+	}
+	for i := 0; i < 11; i++ {
+		prompt := fmt.Sprintf("%v", i)
+		log.Printf("Sending %v", prompt)
+		stream.Send(&pb.InferenceRequest{
+			Prompt: prompt,
+		})
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	response, error := stream.CloseAndRecv()
+	if error != nil {
+		log.Fatalf("Did recived the response for client streamed request: %v", error)
+	}
+	log.Println(response)
+}
+
+func testServerStreaming(client pb.ScorerClient, ctx context.Context) {
+	prompt := "Input size is "
+	stream, err := client.StreamingResponseScore(ctx, &pb.InferenceRequest{
+		Prompt: prompt,
+	})
+
+	if err != nil {
+		log.Fatalf("Could not process server stream request: %v", err)
+	}
+
+	for {
+		response, error := stream.Recv()
+		if error == io.EOF {
+			log.Println("Completed receiving all the response from Server")
+			return
+		} else if error != nil {
+			log.Printf("Could not process server stream response: %v", error)
+			return
+		} else {
+			log.Printf("Received response: %v", response)
+		}
+	}
 }
