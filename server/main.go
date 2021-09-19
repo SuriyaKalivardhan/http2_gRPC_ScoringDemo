@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
 
@@ -10,6 +11,13 @@ import (
 
 type scorerServer struct {
 	pb.UnimplementedScorerServer
+}
+
+func (s *scorerServer) Score(ctx context.Context, in *pb.InferenceRequest) (*pb.InferenceResponse, error) {
+	log.Printf("Received: %v", in.GetPrompt())
+	return &pb.InferenceResponse{
+		Result: in.GetPrompt() + " sunny",
+	}, nil
 }
 
 func main() {
