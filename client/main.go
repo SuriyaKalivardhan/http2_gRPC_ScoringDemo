@@ -48,7 +48,7 @@ func main() {
 		}
 	case "BiDi":
 		{
-			testUnary(client, ctx)
+			testBiDirectionStreaming(client, ctx)
 			break
 		}
 	default:
@@ -73,7 +73,7 @@ func testClientStreaming(client pb.ScorerClient, ctx context.Context) {
 		log.Fatalf("Could not process client stream request: %v", err)
 	}
 	for i := 0; i < 11; i++ {
-		prompt := fmt.Sprintf("%v", i)
+		prompt := fmt.Sprintf("%v", (i * i))
 		log.Printf("Sending %v", prompt)
 		stream.Send(&pb.InferenceRequest{
 			Prompt: prompt,
@@ -109,5 +109,31 @@ func testServerStreaming(client pb.ScorerClient, ctx context.Context) {
 		} else {
 			log.Printf("Received response: %v", response)
 		}
+	}
+}
+
+func testBiDirectionStreaming(client pb.ScorerClient, ctx context.Context) {
+	stream, error := client.BidirectionalScore(ctx)
+	if error != nil {
+		log.Printf("Error in Creating BiDirectional client %v", error)
+		return
+	}
+
+	for i := 0; i < 10; i++ {
+		err := stream.Send(&pb.InferenceRequest{
+			Prompt: fmt.Sprintf("%v", (i * i)),
+		})
+		if err != nil {
+			log.Printf("Error in Sending request in BiDirectional client %v", err)
+		}
+
+		if i%2 == 0 {
+			response, err := stream.Recv()
+			if err != nil {
+				log.Printf("Error in receiving request in BiDirectional client %v", err)
+			}
+			log.Printf("Received %v", response.GetResult())
+		}
+		time.Sleep(250 * time.Millisecond)
 	}
 }

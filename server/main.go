@@ -71,3 +71,29 @@ func (s *scorerServer) StreamingResponseScore(request *pb.InferenceRequest, stre
 	log.Println("Sent all the request to client")
 	return nil
 }
+
+func (s *scorerServer) BidirectionalScore(stream pb.Scorer_BidirectionalScoreServer) error {
+	log.Println("Starting the bidirectional request processing")
+	result := []string{"BATCH START "}
+	for i := 0; i < 10; i++ {
+		request, error := stream.Recv()
+		if error != nil {
+			log.Printf("Could not process bidirection request %v", error)
+			return error
+		} else {
+			result = append(result, request.GetPrompt())
+		}
+
+		if i%2 == 0 {
+			batchResult := strings.Join(result, "__") + " BATCH END"
+			log.Printf("Sending current stream response %s", batchResult)
+			stream.Send(&pb.InferenceResponse{
+				Result: batchResult,
+			})
+			result = []string{"BATCH START "}
+		}
+		time.Sleep(125 * time.Millisecond)
+	}
+	log.Println("Ending the bidirectional request processing")
+	return nil
+}
