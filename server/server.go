@@ -51,6 +51,7 @@ func serveHTTP(listener net.Listener) {
 func healthcheck(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Healthcheck Receieved connection %v", r.Proto)
 	w.WriteHeader(http.StatusOK)
+	log.Printf("Healthcheck Writing response %v", r.Proto)
 	fmt.Fprint(w, "ok")
 }
 

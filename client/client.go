@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	pb "azuremachinelearning.com/scorer"
@@ -26,47 +28,58 @@ func main() {
 		log.Printf("Not test RPC type provided, defaulting to Unary")
 	} else {
 		testRPCtype = os.Args[1]
-		log.Printf("Testing: %s", testRPCtype)
 	}
 
 	client := pb.NewScorerClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	for {
+		log.Printf("Testing: %s", testRPCtype)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+		switch testRPCtype {
+		case "Unary":
+			{
+				testUnary(client, ctx)
+				break
+			}
+		case "cStream":
+			{
+				testClientStreaming(client, ctx)
+				break
+			}
+		case "sStream":
+			{
+				testServerStreaming(client, ctx)
+				break
+			}
+		case "BiDi":
+			{
+				testBiDirectionStreaming(client, ctx)
+				break
+			}
+		case "All":
+			{
+				for i := 1; i <= 10; i++ {
+					go testAll(client, ctx)
+				}
+				break
+			}
+		default:
+			{
+				log.Printf("No matching test found for %s, Supported values are Unary, cStream, sStream, BiDi, All", testRPCtype)
+			}
+		}
 
-	switch testRPCtype {
-	case "Unary":
-		{
-			testUnary(client, ctx)
-			break
+		reader := bufio.NewReader(os.Stdin)
+		log.Print("Enter next test type  Unary, cStream, sStream, BiDi, All, Exit: ")
+		text, _ := reader.ReadString('\n')
+		testRPCtype = strings.Trim(text, "\r\n")
+		if testRPCtype == "Exit" || testRPCtype == "exit" {
+			log.Println("Exiting from program, closing the connection")
+			cancel()
+			conn.Close()
+			return
 		}
-	case "cStream":
-		{
-			testClientStreaming(client, ctx)
-			break
-		}
-	case "sStream":
-		{
-			testServerStreaming(client, ctx)
-			break
-		}
-	case "BiDi":
-		{
-			testBiDirectionStreaming(client, ctx)
-			break
-		}
-	case "All":
-		{
-			go testUnary(client, ctx)
-			go testClientStreaming(client, ctx)
-			go testServerStreaming(client, ctx)
-			testBiDirectionStreaming(client, ctx)
-			break
-		}
-	default:
-		{
-			log.Printf("No matching test found for %s, Supported values are Unary, cStream, sStream, BiDi", testRPCtype)
-		}
+
 	}
-	defer cancel()
 }
 
 func testUnary(client pb.ScorerClient, ctx context.Context) {
@@ -146,4 +159,11 @@ func testBiDirectionStreaming(client pb.ScorerClient, ctx context.Context) {
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
+}
+
+func testAll(client pb.ScorerClient, ctx context.Context) {
+	go testUnary(client, ctx)
+	go testClientStreaming(client, ctx)
+	go testServerStreaming(client, ctx)
+	testBiDirectionStreaming(client, ctx)
 }
