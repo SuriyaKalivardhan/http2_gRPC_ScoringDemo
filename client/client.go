@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	conn, err := grpc.Dial("localhost:55555", grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial("localhost:5001", grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}

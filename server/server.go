@@ -6,21 +6,52 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
 	pb "azuremachinelearning.com/scorer"
+	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 )
 
 func main() {
-	listener, err := net.Listen("tcp", "localhost:55555")
+	listener, err := net.Listen("tcp", "localhost:5001")
 	if err != nil {
 		log.Printf("Exception occured %v", err)
 	}
+
+	tcpmux := cmux.New(listener)
+
+	httpListener := tcpmux.Match(cmux.HTTP1Fast())
+	grpcListener := tcpmux.Match(cmux.Any())
+
+	go serveHTTP(httpListener)
+	go serveGRPC(grpcListener)
+
+	tcpmux.Serve()
+	select {}
+}
+
+func serveGRPC(listener net.Listener) {
 	grpcServer := grpc.NewServer()
 	pb.RegisterScorerServer(grpcServer, &scorerServer{})
-	grpcServer.Serve(listener)
+	if err := grpcServer.Serve(listener); err != nil {
+		log.Fatalf("While serving gRpc request: %v", err)
+	}
+}
+
+func serveHTTP(listener net.Listener) {
+	http.HandleFunc("/healthcheck", healthcheck)
+	if err := http.Serve(listener, nil); err != nil {
+		log.Fatalf("While serving http request: %v", err)
+	}
+}
+
+func healthcheck(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Receieved connection %v", r.Proto)
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "ok")
 }
 
 type scorerServer struct {
