@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	listener, err := net.Listen("tcp", "localhost:5001")
+	listener, err := net.Listen("tcp", "[::1]:5001")
 	if err != nil {
 		log.Printf("Exception occured %v", err)
 	}
