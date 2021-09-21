@@ -13,7 +13,9 @@ import (
 )
 
 func main() {
-	conn, err := grpc.Dial(":5001", grpc.WithInsecure(), grpc.WithBlock())
+	//conn, err := grpc.Dial(":5001", grpc.WithInsecure(), grpc.WithBlock())
+	//conn, err := grpc.Dial("ep-suriyak-onebox-2.eastus.inference.ml.azure.com", grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial("suriyakvm.westus2.cloudapp.azure.com:5001", grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -51,6 +53,14 @@ func main() {
 			testBiDirectionStreaming(client, ctx)
 			break
 		}
+	case "All":
+		{
+			go testUnary(client, ctx)
+			go testClientStreaming(client, ctx)
+			go testServerStreaming(client, ctx)
+			testBiDirectionStreaming(client, ctx)
+			break
+		}
 	default:
 		{
 			log.Printf("No matching test found for %s, Supported values are Unary, cStream, sStream, BiDi", testRPCtype)
@@ -64,7 +74,7 @@ func testUnary(client pb.ScorerClient, ctx context.Context) {
 	if err != nil {
 		log.Fatalf("could not process: %v", err)
 	}
-	log.Printf("%s", r.GetResult())
+	log.Printf("Unary result %s", r.GetResult())
 }
 
 func testClientStreaming(client pb.ScorerClient, ctx context.Context) {
@@ -74,7 +84,7 @@ func testClientStreaming(client pb.ScorerClient, ctx context.Context) {
 	}
 	for i := 0; i < 11; i++ {
 		prompt := fmt.Sprintf("%v", (i * i))
-		log.Printf("Sending %v", prompt)
+		log.Printf("cStream Sending %v", prompt)
 		stream.Send(&pb.InferenceRequest{
 			Prompt: prompt,
 		})
@@ -85,7 +95,7 @@ func testClientStreaming(client pb.ScorerClient, ctx context.Context) {
 	if error != nil {
 		log.Fatalf("Did recived the response for client streamed request: %v", error)
 	}
-	log.Println(response)
+	log.Printf("cStream Response %v", response)
 }
 
 func testServerStreaming(client pb.ScorerClient, ctx context.Context) {
@@ -107,7 +117,7 @@ func testServerStreaming(client pb.ScorerClient, ctx context.Context) {
 			log.Printf("Could not process server stream response: %v", error)
 			return
 		} else {
-			log.Printf("Received response: %v", response)
+			log.Printf("sStream Received response: %v", response)
 		}
 	}
 }
@@ -132,7 +142,7 @@ func testBiDirectionStreaming(client pb.ScorerClient, ctx context.Context) {
 			if err != nil {
 				log.Printf("Error in receiving request in BiDirectional client %v", err)
 			}
-			log.Printf("Received %v", response.GetResult())
+			log.Printf("BiDi Received %v", response.GetResult())
 		}
 		time.Sleep(250 * time.Millisecond)
 	}

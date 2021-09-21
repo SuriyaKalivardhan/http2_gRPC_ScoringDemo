@@ -49,7 +49,7 @@ func serveHTTP(listener net.Listener) {
 }
 
 func healthcheck(w http.ResponseWriter, r *http.Request) {
-	log.Printf("Receieved connection %v", r.Proto)
+	log.Printf("Healthcheck Receieved connection %v", r.Proto)
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, "ok")
 }
@@ -59,7 +59,7 @@ type scorerServer struct {
 }
 
 func (s *scorerServer) Score(ctx context.Context, request *pb.InferenceRequest) (*pb.InferenceResponse, error) {
-	log.Printf("Received: %v", request.GetPrompt())
+	log.Printf("Unary Received: %v", request.GetPrompt())
 	return &pb.InferenceResponse{
 		Result: request.GetPrompt() + " sunny",
 	}, nil
@@ -71,7 +71,7 @@ func (s *scorerServer) StreamingRequestScore(stream pb.Scorer_StreamingRequestSc
 		request, err := stream.Recv()
 		if err == io.EOF {
 			finalResult := strings.Join(result, "__") + " END"
-			log.Printf("End of streaming request, will return the response %s", finalResult)
+			log.Printf("cStream End of streaming request, will return the response %s", finalResult)
 			return stream.SendAndClose(&pb.InferenceResponse{
 				Result: finalResult,
 			})
@@ -80,7 +80,7 @@ func (s *scorerServer) StreamingRequestScore(stream pb.Scorer_StreamingRequestSc
 			return nil
 		}
 		if len(result) == 1 {
-			log.Println("First response received from client")
+			log.Println("cStream First response received from client")
 		}
 		result = append(result, request.GetPrompt())
 	}
@@ -88,7 +88,7 @@ func (s *scorerServer) StreamingRequestScore(stream pb.Scorer_StreamingRequestSc
 
 func (s *scorerServer) StreamingResponseScore(request *pb.InferenceRequest, stream pb.Scorer_StreamingResponseScoreServer) error {
 	prompt := request.GetPrompt()
-	log.Println("Sending first response for the Server Streaming request")
+	log.Println("sStream Sending first response for the Server Streaming request")
 	for i := 0; i < 10; i++ {
 		result := fmt.Sprintf("%s %v", prompt, i)
 		error := stream.Send(&pb.InferenceResponse{
@@ -99,12 +99,12 @@ func (s *scorerServer) StreamingResponseScore(request *pb.InferenceRequest, stre
 		}
 		time.Sleep(250 * time.Millisecond)
 	}
-	log.Println("Sent all the request to client")
+	log.Println("sStream Sent all the request to client")
 	return nil
 }
 
 func (s *scorerServer) BidirectionalScore(stream pb.Scorer_BidirectionalScoreServer) error {
-	log.Println("Starting the bidirectional request processing")
+	log.Println("BiDi Starting the bidirectional request processing")
 	result := []string{"BATCH START "}
 	for i := 0; i < 10; i++ {
 		request, error := stream.Recv()
@@ -117,7 +117,7 @@ func (s *scorerServer) BidirectionalScore(stream pb.Scorer_BidirectionalScoreSer
 
 		if i%2 == 0 {
 			batchResult := strings.Join(result, "__") + " BATCH END"
-			log.Printf("Sending current stream response %s", batchResult)
+			log.Printf("BiDi Sending current stream response %s", batchResult)
 			stream.Send(&pb.InferenceResponse{
 				Result: batchResult,
 			})
@@ -125,6 +125,6 @@ func (s *scorerServer) BidirectionalScore(stream pb.Scorer_BidirectionalScoreSer
 		}
 		time.Sleep(125 * time.Millisecond)
 	}
-	log.Println("Ending the bidirectional request processing")
+	log.Println("BiDi Ending the bidirectional request processing")
 	return nil
 }
