@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -12,12 +13,39 @@ import (
 
 	pb "azuremachinelearning.com/scorer"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
+
+type tokenAuth struct {
+	token string
+}
+
+func (t tokenAuth) GetRequestMetadata(ctx context.Context, in ...string) (map[string]string, error) {
+	return map[string]string{
+		"authorization": "Bearer " + t.token,
+	}, nil
+}
+
+func (tokenAuth) RequireTransportSecurity() bool {
+	return true
+}
 
 func main() {
 	//conn, err := grpc.Dial(":5001", grpc.WithInsecure(), grpc.WithBlock())
-	//conn, err := grpc.Dial("ep-suriyak-onebox-2.eastus.inference.ml.azure.com", grpc.WithInsecure(), grpc.WithBlock())
-	conn, err := grpc.Dial("suriyakvm.westus2.cloudapp.azure.com:5001", grpc.WithInsecure(), grpc.WithBlock())
+	//conn, err := grpc.Dial("https://ep-suriyak-onebox-2.eastus.inference.ml.azure.com", grpc.WithInsecure(), grpc.WithBlock())
+	//conn, err := grpc.Dial("suriyakvm.westus2.cloudapp.azure.com:5001", grpc.WithInsecure(), grpc.WithBlock())
+
+	tlsConfig := &tls.Config{}
+	tlsConfig.InsecureSkipVerify = true
+
+	token := "eyJ0eXAiOi..."
+	conn, err := grpc.Dial("ep-suriyak-onebox-2.eastus.inference.ml.azure.com:443",
+		grpc.WithTransportCredentials( //credentials.NewClientTLSFromCert(insecure.CertPool, "")),
+			credentials.NewTLS(tlsConfig)),
+		grpc.WithPerRPCCredentials(tokenAuth{
+			token: token,
+		}))
+
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -57,7 +85,7 @@ func main() {
 			}
 		case "All":
 			{
-				for i := 1; i <= 10; i++ {
+				for i := 1; i <= 1; i++ {
 					go testAll(client, ctx)
 				}
 				break
